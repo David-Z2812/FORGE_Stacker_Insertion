@@ -15,9 +15,10 @@ from isaaclab_tasks.direct.factory.factory_tasks_cfg import (
     NutThread, 
     PegInsert
 )
+from pathlib import Path
 
 # Define local asset directory for your USD files
-LOCAL_ASSET_DIR = "/home/david/IsaacLab/source/isaaclab_assets/data/Factory"
+LOCAL_ASSET_DIR = str(Path(__file__).resolve().parents[4] / "isaaclab_assets/data/Factory/")
 
 
 @configclass

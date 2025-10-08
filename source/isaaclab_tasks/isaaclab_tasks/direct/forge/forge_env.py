@@ -19,6 +19,8 @@ from .forge_env_cfg import ForgeEnvCfg
 
 import carb
 
+from pathlib import Path
+
 
 class ForgeEnv(FactoryEnv):
     cfg: ForgeEnvCfg
@@ -449,7 +451,7 @@ class ForgeEnv(FactoryEnv):
         mount_cfg = RigidObjectCfg(
             prim_path="/World/envs/env_.*/Mount",
             spawn=sim_utils.UsdFileCfg(
-                usd_path="/home/david/IsaacLab/source/isaaclab_assets/data/Factory/factory_mount.usd",
+                usd_path = str(Path(__file__).resolve().parents[4] / "isaaclab_assets/data/Factory/factory_mount.usd"),
                 rigid_props=sim_utils.RigidBodyPropertiesCfg(
                     kinematic_enabled=True,  # Make it static
                     disable_gravity=True,
@@ -467,12 +469,14 @@ class ForgeEnv(FactoryEnv):
 
         # Create robot (still uses Articulation) - modify config for upside down hanging
         from isaaclab.assets import ArticulationCfg
+
+
         
         # Create a new robot config with modified initial state
         robot_cfg = ArticulationCfg(
             prim_path="/World/envs/env_.*/Robot",
             spawn=sim_utils.UsdFileCfg(
-                usd_path="/home/david/Downloads/franka_mimic.usd",
+                usd_path = str(Path(__file__).resolve().parents[4] / "isaaclab_assets/data/Factory/franka_mimic.usd"),
                 activate_contact_sensors=True,
                 rigid_props=sim_utils.RigidBodyPropertiesCfg(
                     disable_gravity=True,

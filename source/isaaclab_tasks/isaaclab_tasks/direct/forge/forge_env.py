@@ -593,7 +593,7 @@ class ForgeEnv(FactoryEnv):
         # (2.b.) Orientation - Fixed orientation for consistent gripping
         held_orn_quat = torch.tensor([1.0, 0.0, 0.0, 0.0], device=self.device).unsqueeze(0).repeat(len(env_ids), 1)
         held_state[:, 3:7] = held_orn_quat
-        print(f"DEBUG: Set held asset to default position and orientation (no randomization)")
+        # print(f"DEBUG: Set held asset to default position and orientation (no randomization)")
         # (2.c.) Velocity
         held_state[:, 7:] = 0.0  # vel
         # (2.d.) Update values.
@@ -602,7 +602,7 @@ class ForgeEnv(FactoryEnv):
         self._held_asset.reset()
 
         # (3) DIRECT POSITIONING: Position stacker directly under gripper for upside-down robot
-        print(f"DEBUG: Fingertip position before positioning: {self.fingertip_midpoint_pos[0]}")
+        # print(f"DEBUG: Fingertip position before positioning: {self.fingertip_midpoint_pos[0]}")
         
         # Get the relative positioning (should be negative Z for below gripper)
         held_asset_relative_pos, held_asset_relative_quat = self.get_handheld_asset_relative_pose()
@@ -611,11 +611,11 @@ class ForgeEnv(FactoryEnv):
         translated_held_asset_pos = self.fingertip_midpoint_pos + held_asset_relative_pos
         translated_held_asset_quat = held_asset_relative_quat.clone()  # Use default orientation
         
-        print(f"DEBUG: Calculated stacker position (fingertip + relative): {translated_held_asset_pos[0]}")
-        print(f"DEBUG: Relative offset used: {held_asset_relative_pos[0]}")
+        # print(f"DEBUG: Calculated stacker position (fingertip + relative): {translated_held_asset_pos[0]}")
+        # print(f"DEBUG: Relative offset used: {held_asset_relative_pos[0]}")
 
         # Skip asset in hand randomization for consistent training
-        print(f"DEBUG: Using deterministic positioning (no randomization)")
+        # print(f"DEBUG: Using deterministic positioning (no randomization)")
 
         held_state = self._held_asset.data.default_root_state.clone()
         held_state[:, 0:3] = translated_held_asset_pos + self.scene.env_origins
@@ -638,9 +638,9 @@ class ForgeEnv(FactoryEnv):
         self.step_sim_no_action()
 
         # SKIP GRIPPING: Stacker is already grasped, just set gripper to closed position
-        print("DEBUG: Skipping gripping - stacker already in gripper for insertion training")
-        print(f"Stacker position: {self._held_asset.data.root_pos_w[0]}")
-        print(f"Fingertip position: {self.fingertip_midpoint_pos[0]}")
+        # print("DEBUG: Skipping gripping - stacker already in gripper for insertion training")
+        # print(f"Stacker position: {self._held_asset.data.root_pos_w[0]}")
+        # print(f"Fingertip position: {self.fingertip_midpoint_pos[0]}")
         self.step_sim_no_action()
         # wait_time = 0.0
         # while wait_time < 0.55:

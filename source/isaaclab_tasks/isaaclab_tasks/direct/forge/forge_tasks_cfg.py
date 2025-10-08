@@ -59,7 +59,7 @@ class ContainerCornerCasting(FixedAssetCfg):
     usd_path = f"{LOCAL_ASSET_DIR}/factory_container_corner_casting.usd"
     diameter = 0.142  # X-dimension (insertion point width)
     height = 0.118    # Z-dimension (height)
-    base_height = 0.02  # Base height for CoM calculation (estimate)
+    base_height = 0.04  # Base height for CoM calculation (estimate)
     friction = 0.75
     mass = 10.0
 

@@ -644,10 +644,10 @@ class ForgeEnv(FactoryEnv):
         #     wait_time += self.sim.get_physics_dt()
         grasp_time = 0.0
         while grasp_time < 1.5:
-            print(f"DEBUG: Waiting for gripper to close - time: {grasp_time}")
+            #print(f"DEBUG: Waiting for gripper to close - time: {grasp_time}")
             self.ctrl_target_joint_pos[env_ids, 7:] = 0.0  # Close gripper.
             self._robot.set_joint_position_target(self.ctrl_target_joint_pos)
-            print(f"DEBUG: Gripper position: {self._robot.data.joint_pos[env_ids, 7:]}")
+            #print(f"DEBUG: Gripper position: {self._robot.data.joint_pos[env_ids, 7:]}")
             #self.close_gripper_in_place()
             self.step_sim_no_action()   
             grasp_time += self.sim.get_physics_dt()

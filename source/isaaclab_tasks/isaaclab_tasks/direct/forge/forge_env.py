@@ -451,7 +451,7 @@ class ForgeEnv(FactoryEnv):
         mount_cfg = RigidObjectCfg(
             prim_path="/World/envs/env_.*/Mount",
             spawn=sim_utils.UsdFileCfg(
-                usd_path = str(Path(__file__).resolve().parents[4] / "isaaclab_assets/data/Factory/factory_mount.usd"),
+                usd_path = str(Path(__file__).resolve().parents[4] / "isaaclab_assets/data/Factory/mount_collision_2.usd"),
                 rigid_props=sim_utils.RigidBodyPropertiesCfg(
                     kinematic_enabled=True,  # Make it static
                     disable_gravity=True,
@@ -462,7 +462,7 @@ class ForgeEnv(FactoryEnv):
             ),
             init_state=RigidObjectCfg.InitialStateCfg(
                 pos=(0.0, 0.0, 0.0),  # Position above ground
-                rot=(1.0, 0.0, 0.0, 0.0),  # 
+                rot=( 0, 0, 0.7071068, 0.7071068 ),  # 
             ),
         )
         self._mount = RigidObject(mount_cfg)

@@ -79,8 +79,8 @@ class ForgeEnv(FactoryEnv):
             )
             held_asset_relative_quat = torch_utils.quat_mul(rot_quat, held_asset_relative_quat)
             
-            print(f"DEBUG: Relative pose (already grasped) - pos: {held_asset_relative_pos[0]}, quat: {held_asset_relative_quat[0]}")
-            print(f"DEBUG: Gripper orientation: {self.fingertip_midpoint_quat[0]}")
+            # print(f"DEBUG: Relative pose (already grasped) - pos: {held_asset_relative_pos[0]}, quat: {held_asset_relative_quat[0]}")
+            # print(f"DEBUG: Gripper orientation: {self.fingertip_midpoint_quat[0]}")
             
             return held_asset_relative_pos, held_asset_relative_quat
         else:

@@ -57,9 +57,27 @@ def main():
         # run everything in inference mode
         with torch.inference_mode():
             # sample actions from -1 to 1
-            actions = 2 * torch.rand(env.action_space.shape, device=env.unwrapped.device) - 1
+            # actions = 2 * torch.rand(env.action_space.shape, device=env.unwrapped.device) - 1
             # apply actions
-            env.step(actions)
+            # env.step(actions)
+
+            actions = torch.zeros(env.action_space.shape, device=env.unwrapped.device)
+            actions[0, 2] = 0.001
+            # Print the reward returned by the environment
+            obs, reward, terminated, truncated, info = env.step(actions)
+            # Print total reward
+            print(f"[RANDOM_AGENT]: Reward: {reward}")
+
+            # If info contains subreward components, print those as well
+            # Convention: subrewards are in info dict with keys like "logs_rew_*"
+            if isinstance(info, dict):
+                subrewards = {k.replace("logs_rew_", ""): v for k, v in info.items() if k.startswith("logs_rew_")}
+                if subrewards:
+                    print("[RANDOM_AGENT]: Reward breakdown:")
+                    for name, value in subrewards.items():
+                        if hasattr(value, "item"):
+                            value = value.item()
+                        print(f"   {name}: {value}")
 
     # close the simulator
     env.close()

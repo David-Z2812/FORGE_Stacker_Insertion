@@ -67,7 +67,7 @@ class ForgeEnv(FactoryEnv):
             held_asset_relative_pos = torch.zeros((self.num_envs, 3), device=self.device)
             # Position stacker close to gripper since it's already grasped
             # For upside-down robot, stacker should be just below fingertip
-            held_asset_relative_pos[:, 2] = 0.029  # 2cm below fingertip (already grasped)
+            held_asset_relative_pos[:, 2] = -0.04  # 2cm below fingertip (already grasped)
             
             # Use the same orientation as the gripper (fingertip)
             # held_asset_relative_quat = self.fingertip_midpoint_quat.clone()
@@ -77,7 +77,8 @@ class ForgeEnv(FactoryEnv):
             #     torch.tensor([1.0, 0.0, 0.0], device=self.device).expand(self.num_envs, 3)
             # )
             # held_asset_relative_quat = torch_utils.quat_mul(rot_quat, held_asset_relative_quat)
-            held_asset_relative_quat = torch.tensor([0, 0, -0.7071068, 0.7071068], device=self.device).expand(self.num_envs, 4).clone()
+            # held_asset_relative_quat = torch.tensor([0, 0, -0.7071068, 0.7071068], device=self.device).expand(self.num_envs, 4).clone()
+            held_asset_relative_quat = torch.tensor([1.0, 0.0, 0.0, 0.0], device=self.device).expand(self.num_envs, 4).clone()
             # print(f"DEBUG: Relative pose (already grasped) - pos: {held_asset_relative_pos[0]}, quat: {held_asset_relative_quat[0]}")
             print(f"DEBUG: Gripper orientation: {self.fingertip_midpoint_quat}")
             print(f"DEBUG: Gripper relative: {held_asset_relative_quat}")
@@ -591,8 +592,8 @@ class ForgeEnv(FactoryEnv):
         # Compute the frame on the bolt that would be used as observation: fixed_pos_obs_frame
         # For example, the tip of the bolt can be used as the observation frame
         fixed_tip_pos_local = torch.zeros((self.num_envs, 3), device=self.device)
-        fixed_tip_pos_local[:, 2] += self.cfg_task.fixed_asset_cfg.height
-        fixed_tip_pos_local[:, 2] += self.cfg_task.fixed_asset_cfg.base_height
+        # fixed_tip_pos_local[:, 2] += self.cfg_task.fixed_asset_cfg.height
+        # fixed_tip_pos_local[:, 2] += self.cfg_task.fixed_asset_cfg.base_height
         if self.cfg_task.name == "gear_mesh":
             fixed_tip_pos_local[:, 0] = self.cfg_task.fixed_asset_cfg.medium_gear_base_offset[0]
 
@@ -614,6 +615,8 @@ class ForgeEnv(FactoryEnv):
             n_bad = bad_envs.shape[0]
 
             above_fixed_pos = fixed_tip_pos.clone()
+            above_fixed_pos[:, 0] += self.cfg_task.hand_init_pos[0]
+            above_fixed_pos[:, 1] += self.cfg_task.hand_init_pos[1]
             above_fixed_pos[:, 2] += self.cfg_task.hand_init_pos[2]
             
             # Debug: Print target position for stacker_insert
@@ -758,8 +761,8 @@ class ForgeEnv(FactoryEnv):
             grasp_time += self.sim.get_physics_dt()
         print(f"DEBUG: Gripper position: {self._robot.data.joint_pos[env_ids, 7:]}")
 
-        while(True):
-            self.step_sim_no_action(render=True)
+        # while(True):
+        #     self.step_sim_no_action(render=True)
 
         self.prev_joint_pos = self.joint_pos[:, 0:7].clone()
         self.prev_fingertip_pos = self.fingertip_midpoint_pos.clone()

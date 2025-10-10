@@ -48,9 +48,9 @@ class ForgeNutThread(NutThread, ForgeTask):
 
 @configclass
 class Stacker(HeldAssetCfg):
-    usd_path = f"{LOCAL_ASSET_DIR}/factory_stacker.usd"
-    diameter = 0.110  # Y-dimension (width for gripper)
-    height = 0.137    # Z-dimension (height)
+    usd_path = f"{LOCAL_ASSET_DIR}/stacker_oriented.usd"
+    diameter = 0.110  # Y-dimension (width for gripper) 0.137
+    height = 0.110    # Z-dimension (height)
     mass = 0.1        # Mass of the stacker
     friction = 0.75
 
@@ -60,7 +60,7 @@ class ContainerCornerCasting(FixedAssetCfg):
     usd_path = f"{LOCAL_ASSET_DIR}/factory_container_corner_casting.usd"
     diameter = 0.142  # X-dimension (insertion point width)
     height = 0.118    # Z-dimension (height)
-    base_height = 0.04  # Base height for CoM calculation (estimate)
+    base_height = 0.025  # Base height for CoM calculation (estimate)
     friction = 0.75
     mass = 10.0
 
@@ -74,18 +74,21 @@ class ForgeStackerInsert(ForgeTask):
     duration_s = 15.0  # Longer duration for more complex insertion
 
     # Robot initialization
-    hand_init_pos: list = [0.0, 0.0, -0.30]  # Relative to fixed asset tip
-    hand_init_pos_noise: list = [0.03, 0.03, 0.02]  # Slightly more noise for larger objects
+    hand_init_pos: list = [-0.009, -0.018, -0.12]  # Relative to fixed asset tip
+    # hand_init_pos_noise: list = [0.03, 0.03, 0.02]  # Slightly more noise for larger objects
+    hand_init_pos_noise: list = [0.00, 0.00, 0.0]
     hand_init_orn: list = [0.0, 0.0, -1.571-0.524]
-    hand_init_orn_noise: list = [0.2, 0.2, 0.2]  # No orientation noise for deterministic behavior
+    # hand_init_orn_noise: list = [0.2, 0.2, 0.2]  # No orientation noise for deterministic behavior
+    hand_init_orn_noise: list = [0.0, 0.0, 0.0]
 
     # Fixed Asset (container corner casting)
-    fixed_asset_init_pos_noise: list = [0.05, 0.05, 0.05]
+    # fixed_asset_init_pos_noise: list = [0.05, 0.05, 0.05]
+    fixed_asset_init_pos_noise: list = [0.0, 0.0, 0.0]
     fixed_asset_init_orn_deg: float = 0.0
     fixed_asset_init_orn_range_deg: float = 0.0
 
     # Held Asset (stacker)
-    held_asset_pos_noise: list = [0.005, 0.005, 0.005]  # Noise level in gripper
+    held_asset_pos_noise: list = [0.000, 0.000, 0.000]  # Noise level in gripper
     held_asset_rot_init: float = 0.0
 
     # Rewards - adjusted for stacker insertion

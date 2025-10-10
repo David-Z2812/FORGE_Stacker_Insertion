@@ -74,10 +74,10 @@ class ForgeStackerInsert(ForgeTask):
     duration_s = 15.0  # Longer duration for more complex insertion
 
     # Robot initialization
-    hand_init_pos: list = [0.0, 0.0, 0.06]  # Relative to fixed asset tip
+    hand_init_pos: list = [0.0, 0.0, -0.30]  # Relative to fixed asset tip
     hand_init_pos_noise: list = [0.03, 0.03, 0.02]  # Slightly more noise for larger objects
-    hand_init_orn: list = [3.1416, 0.0, 0.0]
-    hand_init_orn_noise: list = [0.0, 0.0, 0.0]  # No orientation noise for deterministic behavior
+    hand_init_orn: list = [0.0, 0.0, -1.571-0.524]
+    hand_init_orn_noise: list = [0.2, 0.2, 0.2]  # No orientation noise for deterministic behavior
 
     # Fixed Asset (container corner casting)
     fixed_asset_init_pos_noise: list = [0.05, 0.05, 0.05]

@@ -68,19 +68,20 @@ class ForgeEnv(FactoryEnv):
             # Position stacker close to gripper since it's already grasped
             # For upside-down robot, stacker should be just below fingertip
             held_asset_relative_pos[:, 2] = 0.029  # 2cm below fingertip (already grasped)
-            held_asset_relative_pos[:, 0] =   0.00
             
             # Use the same orientation as the gripper (fingertip)
-            held_asset_relative_quat = self.fingertip_midpoint_quat.clone()
+            # held_asset_relative_quat = self.fingertip_midpoint_quat.clone()
             # Rotate the gripper by 90 degrees around the x axis
-            rot_quat = torch_utils.quat_from_angle_axis(
-                torch.full((self.num_envs,), -np.pi / 2, device=self.device),
-                torch.tensor([1.0, 0.0, 0.0], device=self.device).expand(self.num_envs, 3)
-            )
-            held_asset_relative_quat = torch_utils.quat_mul(rot_quat, held_asset_relative_quat)
-            
+            # rot_quat = torch_utils.quat_from_angle_axis(
+            #     torch.full((self.num_envs,), -np.pi / 2, device=self.device),
+            #     torch.tensor([1.0, 0.0, 0.0], device=self.device).expand(self.num_envs, 3)
+            # )
+            # held_asset_relative_quat = torch_utils.quat_mul(rot_quat, held_asset_relative_quat)
+            held_asset_relative_quat = torch.tensor([0, 0, -0.7071068, 0.7071068], device=self.device).expand(self.num_envs, 4).clone()
             # print(f"DEBUG: Relative pose (already grasped) - pos: {held_asset_relative_pos[0]}, quat: {held_asset_relative_quat[0]}")
-            # print(f"DEBUG: Gripper orientation: {self.fingertip_midpoint_quat[0]}")
+            print(f"DEBUG: Gripper orientation: {self.fingertip_midpoint_quat}")
+            print(f"DEBUG: Gripper relative: {held_asset_relative_quat}")
+
             
             return held_asset_relative_pos, held_asset_relative_quat
         else:
@@ -576,8 +577,7 @@ class ForgeEnv(FactoryEnv):
         fixed_state[:, 7:] = 0.0  # vel
         # (1.d.) Update values.
         self._fixed_asset.write_root_pose_to_sim(fixed_state[:, 0:7], env_ids=env_ids)
-        # Skip setting velocity for kinematic body
-        # self._fixed_asset.write_root_velocity_to_sim(fixed_state[:, 7:], env_ids=env_ids)
+        self._fixed_asset.write_root_velocity_to_sim(fixed_state[:, 7:], env_ids=env_ids)
         self._fixed_asset.reset()
 
         # (1.e.) Noisy position observation.
@@ -586,20 +586,117 @@ class ForgeEnv(FactoryEnv):
         fixed_asset_pos_noise = fixed_asset_pos_noise @ torch.diag(fixed_asset_pos_rand)
         self.init_fixed_pos_obs_noise[:] = fixed_asset_pos_noise
 
-        # (2.) Set held asset to default pose (no randomization for consistent training)
-        held_state = self._held_asset.data.default_root_state.clone()[env_ids]
-        # (2.a.) Position - Use default position (no randomization)
-        held_state[:, 0:3] += self.scene.env_origins[env_ids]  # Only add environment origins
-        # (2.b.) Orientation - Fixed orientation for consistent gripping
-        held_orn_quat = torch.tensor([1.0, 0.0, 0.0, 0.0], device=self.device).unsqueeze(0).repeat(len(env_ids), 1)
-        held_state[:, 3:7] = held_orn_quat
-        # print(f"DEBUG: Set held asset to default position and orientation (no randomization)")
-        # (2.c.) Velocity
-        held_state[:, 7:] = 0.0  # vel
-        # (2.d.) Update values.
-        self._held_asset.write_root_pose_to_sim(held_state[:, 0:7], env_ids=env_ids)
-        self._held_asset.write_root_velocity_to_sim(held_state[:, 7:], env_ids=env_ids)
-        self._held_asset.reset()
+        self.step_sim_no_action()
+
+        # Compute the frame on the bolt that would be used as observation: fixed_pos_obs_frame
+        # For example, the tip of the bolt can be used as the observation frame
+        fixed_tip_pos_local = torch.zeros((self.num_envs, 3), device=self.device)
+        fixed_tip_pos_local[:, 2] += self.cfg_task.fixed_asset_cfg.height
+        fixed_tip_pos_local[:, 2] += self.cfg_task.fixed_asset_cfg.base_height
+        if self.cfg_task.name == "gear_mesh":
+            fixed_tip_pos_local[:, 0] = self.cfg_task.fixed_asset_cfg.medium_gear_base_offset[0]
+
+        _, fixed_tip_pos = torch_utils.tf_combine(
+            self.fixed_quat,
+            self.fixed_pos,
+            torch.tensor([1.0, 0.0, 0.0, 0.0], device=self.device).unsqueeze(0).repeat(self.num_envs, 1),
+            fixed_tip_pos_local,
+        )
+        self.fixed_pos_obs_frame[:] = fixed_tip_pos
+
+        # (2) Move gripper to randomizes location above fixed asset. Keep trying until IK succeeds.
+        # (a) get position vector to target
+        bad_envs = env_ids.clone()
+        ik_attempt = 0
+
+        hand_down_quat = torch.zeros((self.num_envs, 4), dtype=torch.float32, device=self.device)
+        while True:
+            n_bad = bad_envs.shape[0]
+
+            above_fixed_pos = fixed_tip_pos.clone()
+            above_fixed_pos[:, 2] += self.cfg_task.hand_init_pos[2]
+            
+            # Debug: Print target position for stacker_insert
+            if self.cfg_task.name == "stacker_insert":
+                print(f"DEBUG: Target TCP position for stacker_insert: {above_fixed_pos[0]}")
+                print(f"DEBUG: Fixed tip position: {fixed_tip_pos[0]}")
+                print(f"DEBUG: Hand init pos Z offset: {self.cfg_task.hand_init_pos[2]}")
+
+            rand_sample = torch.rand((n_bad, 3), dtype=torch.float32, device=self.device)
+            above_fixed_pos_rand = 2 * (rand_sample - 0.5)  # [-1, 1]
+            hand_init_pos_rand = torch.tensor(self.cfg_task.hand_init_pos_noise, device=self.device)
+            above_fixed_pos_rand = above_fixed_pos_rand @ torch.diag(hand_init_pos_rand)
+            above_fixed_pos[bad_envs] += above_fixed_pos_rand
+
+            # (b) get random orientation facing down
+            hand_down_euler = (
+                torch.tensor(self.cfg_task.hand_init_orn, device=self.device).unsqueeze(0).repeat(n_bad, 1)
+            )
+
+            rand_sample = torch.rand((n_bad, 3), dtype=torch.float32, device=self.device)
+            above_fixed_orn_noise = 2 * (rand_sample - 0.5)  # [-1, 1]
+            hand_init_orn_rand = torch.tensor(self.cfg_task.hand_init_orn_noise, device=self.device)
+            above_fixed_orn_noise = above_fixed_orn_noise @ torch.diag(hand_init_orn_rand)
+            hand_down_euler += above_fixed_orn_noise
+            hand_down_quat[bad_envs, :] = torch_utils.quat_from_euler_xyz(
+                roll=hand_down_euler[:, 0], pitch=hand_down_euler[:, 1], yaw=hand_down_euler[:, 2]
+            )
+
+            # Debug: Print target and actual TCP positions for stacker_insert
+            if self.cfg_task.name == "stacker_insert":
+                print(f"DEBUG: Target TCP position: {above_fixed_pos[0]}")
+                print(f"DEBUG: Actual TCP position: {self.fingertip_midpoint_pos[0]}")
+                print(f"DEBUG: Hand down quat: {hand_down_quat[0]}")
+                print(f"DEBUG: Hand down euler: {hand_down_euler[0]}")
+
+            # (c) iterative IK Method
+            pos_error, aa_error = self.set_pos_inverse_kinematics(
+                ctrl_target_fingertip_midpoint_pos=above_fixed_pos,
+                ctrl_target_fingertip_midpoint_quat=hand_down_quat,
+                env_ids=bad_envs,
+            )
+            pos_error = torch.linalg.norm(pos_error, dim=1) > 1e-3
+            angle_error = torch.norm(aa_error, dim=1) > 1e-3
+            any_error = torch.logical_or(pos_error, angle_error)
+            bad_envs = bad_envs[any_error.nonzero(as_tuple=False).squeeze(-1)]
+
+            # Check IK succeeded for all envs, otherwise try again for those envs
+            if bad_envs.shape[0] == 0:
+                # Debug: Print actual TCP position after IK for stacker_insert
+                if self.cfg_task.name == "stacker_insert":
+                    print(f"DEBUG: Actual TCP position after IK: {self.fingertip_midpoint_pos[0]}")
+                    print(f"DEBUG: Target was: {above_fixed_pos[0]}")
+                    print(f"DEBUG: IK succeeded after {ik_attempt} attempts")
+                break
+
+            self._set_franka_to_default_pose(
+                joints=[0.00871, -0.10368, -0.00794, -1.49139, -0.00083, 1.38774, 0.0], env_ids=bad_envs
+            )
+
+            ik_attempt += 1
+
+        self.step_sim_no_action()
+        
+        # while True:
+        #     self.step_sim_no_action(render=True)
+            
+
+        # Add flanking gears after servo (so arm doesn't move them).
+        if self.cfg_task.name == "gear_mesh" and self.cfg_task.add_flanking_gears:
+            small_gear_state = self._small_gear_asset.data.default_root_state.clone()[env_ids]
+            small_gear_state[:, 0:7] = fixed_state[:, 0:7]
+            small_gear_state[:, 7:] = 0.0  # vel
+            self._small_gear_asset.write_root_pose_to_sim(small_gear_state[:, 0:7], env_ids=env_ids)
+            self._small_gear_asset.write_root_velocity_to_sim(small_gear_state[:, 7:], env_ids=env_ids)
+            self._small_gear_asset.reset()
+
+            large_gear_state = self._large_gear_asset.data.default_root_state.clone()[env_ids]
+            large_gear_state[:, 0:7] = fixed_state[:, 0:7]
+            large_gear_state[:, 7:] = 0.0  # vel
+            self._large_gear_asset.write_root_pose_to_sim(large_gear_state[:, 0:7], env_ids=env_ids)
+            self._large_gear_asset.write_root_velocity_to_sim(large_gear_state[:, 7:], env_ids=env_ids)
+            self._large_gear_asset.reset()
+
 
         # (3) DIRECT POSITIONING: Position stacker directly under gripper for upside-down robot
         # print(f"DEBUG: Fingertip position before positioning: {self.fingertip_midpoint_pos[0]}")
@@ -609,7 +706,7 @@ class ForgeEnv(FactoryEnv):
         
         # SIMPLE: Direct positioning relative to fingertip
         translated_held_asset_pos = self.fingertip_midpoint_pos + held_asset_relative_pos
-        translated_held_asset_quat = held_asset_relative_quat.clone()  # Use default orientation
+        translated_held_asset_quat = torch_utils.quat_mul(self.fingertip_midpoint_quat, held_asset_relative_quat)
         
         # print(f"DEBUG: Calculated stacker position (fingertip + relative): {translated_held_asset_pos[0]}")
         # print(f"DEBUG: Relative offset used: {held_asset_relative_pos[0]}")
@@ -646,6 +743,10 @@ class ForgeEnv(FactoryEnv):
         # while wait_time < 0.55:
         #     self.step_sim_no_action(render=True)
         #     wait_time += self.sim.get_physics_dt()
+
+        # while(True):
+        #     self.step_sim_no_action(render=True)
+
         grasp_time = 0.0
         while grasp_time < 1.5:
             #print(f"DEBUG: Waiting for gripper to close - time: {grasp_time}")
@@ -655,6 +756,10 @@ class ForgeEnv(FactoryEnv):
             #self.close_gripper_in_place()
             self.step_sim_no_action()   
             grasp_time += self.sim.get_physics_dt()
+        print(f"DEBUG: Gripper position: {self._robot.data.joint_pos[env_ids, 7:]}")
+
+        while(True):
+            self.step_sim_no_action(render=True)
 
         self.prev_joint_pos = self.joint_pos[:, 0:7].clone()
         self.prev_fingertip_pos = self.fingertip_midpoint_pos.clone()

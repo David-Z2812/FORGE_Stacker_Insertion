@@ -684,6 +684,12 @@ class FactoryEnv(DirectRLEnv):
 
             above_fixed_pos = fixed_tip_pos.clone()
             above_fixed_pos[:, 2] += self.cfg_task.hand_init_pos[2]
+            
+            # Debug: Print target position for stacker_insert
+            if self.cfg_task.name == "stacker_insert":
+                print(f"DEBUG: Target TCP position for stacker_insert: {above_fixed_pos[0]}")
+                print(f"DEBUG: Fixed tip position: {fixed_tip_pos[0]}")
+                print(f"DEBUG: Hand init pos Z offset: {self.cfg_task.hand_init_pos[2]}")
 
             rand_sample = torch.rand((n_bad, 3), dtype=torch.float32, device=self.device)
             above_fixed_pos_rand = 2 * (rand_sample - 0.5)  # [-1, 1]
@@ -718,6 +724,11 @@ class FactoryEnv(DirectRLEnv):
 
             # Check IK succeeded for all envs, otherwise try again for those envs
             if bad_envs.shape[0] == 0:
+                # Debug: Print actual TCP position after IK for stacker_insert
+                if self.cfg_task.name == "stacker_insert":
+                    print(f"DEBUG: Actual TCP position after IK: {self.fingertip_midpoint_pos[0]}")
+                    print(f"DEBUG: Target was: {above_fixed_pos[0]}")
+                    print(f"DEBUG: IK succeeded after {ik_attempt} attempts")
                 break
 
             self._set_franka_to_default_pose(

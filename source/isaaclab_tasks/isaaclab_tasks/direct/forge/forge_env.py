@@ -80,8 +80,8 @@ class ForgeEnv(FactoryEnv):
             # held_asset_relative_quat = torch.tensor([0, 0, -0.7071068, 0.7071068], device=self.device).expand(self.num_envs, 4).clone()
             held_asset_relative_quat = torch.tensor([1.0, 0.0, 0.0, 0.0], device=self.device).expand(self.num_envs, 4).clone()
             # print(f"DEBUG: Relative pose (already grasped) - pos: {held_asset_relative_pos[0]}, quat: {held_asset_relative_quat[0]}")
-            print(f"DEBUG: Gripper orientation: {self.fingertip_midpoint_quat}")
-            print(f"DEBUG: Gripper relative: {held_asset_relative_quat}")
+            # print(f"DEBUG: Gripper orientation: {self.fingertip_midpoint_quat}")
+            # print(f"DEBUG: Gripper relative: {held_asset_relative_quat}")
 
             
             return held_asset_relative_pos, held_asset_relative_quat
@@ -620,10 +620,10 @@ class ForgeEnv(FactoryEnv):
             above_fixed_pos[:, 2] += self.cfg_task.hand_init_pos[2]
             
             # Debug: Print target position for stacker_insert
-            if self.cfg_task.name == "stacker_insert":
-                print(f"DEBUG: Target TCP position for stacker_insert: {above_fixed_pos[0]}")
-                print(f"DEBUG: Fixed tip position: {fixed_tip_pos[0]}")
-                print(f"DEBUG: Hand init pos Z offset: {self.cfg_task.hand_init_pos[2]}")
+            # if self.cfg_task.name == "stacker_insert":
+            #     print(f"DEBUG: Target TCP position for stacker_insert: {above_fixed_pos[0]}")
+            #     print(f"DEBUG: Fixed tip position: {fixed_tip_pos[0]}")
+            #     print(f"DEBUG: Hand init pos Z offset: {self.cfg_task.hand_init_pos[2]}")
 
             rand_sample = torch.rand((n_bad, 3), dtype=torch.float32, device=self.device)
             above_fixed_pos_rand = 2 * (rand_sample - 0.5)  # [-1, 1]
@@ -646,11 +646,11 @@ class ForgeEnv(FactoryEnv):
             )
 
             # Debug: Print target and actual TCP positions for stacker_insert
-            if self.cfg_task.name == "stacker_insert":
-                print(f"DEBUG: Target TCP position: {above_fixed_pos[0]}")
-                print(f"DEBUG: Actual TCP position: {self.fingertip_midpoint_pos[0]}")
-                print(f"DEBUG: Hand down quat: {hand_down_quat[0]}")
-                print(f"DEBUG: Hand down euler: {hand_down_euler[0]}")
+            # if self.cfg_task.name == "stacker_insert":
+            #     print(f"DEBUG: Target TCP position: {above_fixed_pos[0]}")
+            #     print(f"DEBUG: Actual TCP position: {self.fingertip_midpoint_pos[0]}")
+            #     print(f"DEBUG: Hand down quat: {hand_down_quat[0]}")
+            #     print(f"DEBUG: Hand down euler: {hand_down_euler[0]}")
 
             # (c) iterative IK Method
             pos_error, aa_error = self.set_pos_inverse_kinematics(
@@ -666,11 +666,11 @@ class ForgeEnv(FactoryEnv):
             # Check IK succeeded for all envs, otherwise try again for those envs
             if bad_envs.shape[0] == 0:
                 # Debug: Print actual TCP position after IK for stacker_insert
-                if self.cfg_task.name == "stacker_insert":
-                    print(f"DEBUG: Actual TCP position after IK: {self.fingertip_midpoint_pos[0]}")
-                    print(f"DEBUG: Target was: {above_fixed_pos[0]}")
-                    print(f"DEBUG: IK succeeded after {ik_attempt} attempts")
-                break
+                # if self.cfg_task.name == "stacker_insert":
+                #     print(f"DEBUG: Actual TCP position after IK: {self.fingertip_midpoint_pos[0]}")
+                #     print(f"DEBUG: Target was: {above_fixed_pos[0]}")
+                #     print(f"DEBUG: IK succeeded after {ik_attempt} attempts")
+                # break
 
             self._set_franka_to_default_pose(
                 joints=[0.00871, -0.10368, -0.00794, -1.49139, -0.00083, 1.38774, 0.0], env_ids=bad_envs
@@ -759,7 +759,7 @@ class ForgeEnv(FactoryEnv):
             #self.close_gripper_in_place()
             self.step_sim_no_action()   
             grasp_time += self.sim.get_physics_dt()
-        print(f"DEBUG: Gripper position: {self._robot.data.joint_pos[env_ids, 7:]}")
+        # print(f"DEBUG: Gripper position: {self._robot.data.joint_pos[env_ids, 7:]}")
 
         # while(True):
         #     self.step_sim_no_action(render=True)

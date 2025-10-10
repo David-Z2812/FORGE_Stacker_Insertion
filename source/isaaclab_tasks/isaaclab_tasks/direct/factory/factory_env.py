@@ -724,12 +724,7 @@ class FactoryEnv(DirectRLEnv):
 
             # Check IK succeeded for all envs, otherwise try again for those envs
             if bad_envs.shape[0] == 0:
-                # # Debug: Print actual TCP position after IK for stacker_insert
-                # if self.cfg_task.name == "stacker_insert":
-                #     print(f"DEBUG: Actual TCP position after IK: {self.fingertip_midpoint_pos[0]}")
-                #     print(f"DEBUG: Target was: {above_fixed_pos[0]}")
-                #     print(f"DEBUG: IK succeeded after {ik_attempt} attempts")
-                # break
+                break
 
             self._set_franka_to_default_pose(
                 joints=[0.00871, -0.10368, -0.00794, -1.49139, -0.00083, 1.38774, 0.0], env_ids=bad_envs

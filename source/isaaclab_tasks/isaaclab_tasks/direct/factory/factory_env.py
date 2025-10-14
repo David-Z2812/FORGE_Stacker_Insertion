@@ -93,11 +93,16 @@ class FactoryEnv(DirectRLEnv):
         )
 
         self._robot = Articulation(self.cfg.robot)
-        self._fixed_asset = Articulation(self.cfg_task.fixed_asset)
+        # self._fixed_asset = Articulation(self.cfg_task.fixed_asset)
         self._held_asset = Articulation(self.cfg_task.held_asset)
         if self.cfg_task.name == "gear_mesh":
             self._small_gear_asset = Articulation(self.cfg_task.small_gear_cfg)
             self._large_gear_asset = Articulation(self.cfg_task.large_gear_cfg)
+        if self.cfg_task.name == "stacker_insert":
+            from isaaclab.assets import RigidObject
+            self._fixed_asset = RigidObject(self.cfg_task.fixed_asset)
+        else:
+            self._fixed_asset = Articulation(self.cfg_task.fixed_asset)
 
         self.scene.clone_environments(copy_from_source=False)
         if self.device == "cpu":
@@ -274,7 +279,7 @@ class FactoryEnv(DirectRLEnv):
             delta_pos, -self.cfg.ctrl.pos_action_bounds[0], self.cfg.ctrl.pos_action_bounds[1]
         )
         ctrl_target_fingertip_midpoint_pos = fixed_pos_action_frame + pos_error_clipped
-
+        # print(f"DEBUG: Delta Pos: {delta_pos}")
         # Convert to quat and set rot target
         angle = torch.norm(rot_actions, p=2, dim=-1)
         axis = rot_actions / angle.unsqueeze(-1)
@@ -288,8 +293,8 @@ class FactoryEnv(DirectRLEnv):
         ctrl_target_fingertip_midpoint_quat = torch_utils.quat_mul(rot_actions_quat, self.fingertip_midpoint_quat)
 
         target_euler_xyz = torch.stack(torch_utils.get_euler_xyz(ctrl_target_fingertip_midpoint_quat), dim=1)
-        target_euler_xyz[:, 0] = 3.14159  # Restrict actions to be upright.
-        target_euler_xyz[:, 1] = 0.0
+        # target_euler_xyz[:, 0] = 3.14159  # Restrict actions to be upright.
+        # target_euler_xyz[:, 1] = 0.0
 
         ctrl_target_fingertip_midpoint_quat = torch_utils.quat_from_euler_xyz(
             roll=target_euler_xyz[:, 0], pitch=target_euler_xyz[:, 1], yaw=target_euler_xyz[:, 2]
@@ -467,6 +472,16 @@ class FactoryEnv(DirectRLEnv):
         action_penalty_ee = torch.norm(self.actions, p=2)
         action_grad_penalty = torch.norm(self.actions - self.prev_actions, p=2, dim=-1)
         curr_engaged = self._get_curr_successes(success_threshold=self.cfg_task.engage_threshold, check_rot=False)
+
+        if True:  # turn to env-specific conditional as needed
+            idx = 0
+            # print("DEBUG_KP keypoint_dist:", keypoint_dist[idx].item())
+            # print("DEBUG_KP held_base_pos:", held_base_pos[idx].cpu().numpy())
+            # print("DEBUG_KP target_held_base_pos:", target_held_base_pos[idx].cpu().numpy())
+            # print("DEBUG_KP keypoints_held[0]:", keypoints_held[idx].cpu().numpy())
+            # print("DEBUG_KP keypoints_fixed[0]:", keypoints_fixed[idx].cpu().numpy())
+            a0, b0 = self.cfg_task.keypoint_coef_baseline
+            # print("DEBUG_KP squash a0,b0:", a0, b0, "keypoint_scale:", self.cfg_task.keypoint_scale)
 
         rew_dict = {
             "kp_baseline": factory_utils.squashing_fn(keypoint_dist, a0, b0),
@@ -687,9 +702,9 @@ class FactoryEnv(DirectRLEnv):
             
             # # Debug: Print target position for stacker_insert
             # if self.cfg_task.name == "stacker_insert":
-            #     print(f"DEBUG: Target TCP position for stacker_insert: {above_fixed_pos[0]}")
-            #     print(f"DEBUG: Fixed tip position: {fixed_tip_pos[0]}")
-            #     print(f"DEBUG: Hand init pos Z offset: {self.cfg_task.hand_init_pos[2]}")
+            #     # print(f"DEBUG: Target TCP position for stacker_insert: {above_fixed_pos[0]}")
+            #     # print(f"DEBUG: Fixed tip position: {fixed_tip_pos[0]}")
+            #     # print(f"DEBUG: Hand init pos Z offset: {self.cfg_task.hand_init_pos[2]}")
 
             rand_sample = torch.rand((n_bad, 3), dtype=torch.float32, device=self.device)
             above_fixed_pos_rand = 2 * (rand_sample - 0.5)  # [-1, 1]

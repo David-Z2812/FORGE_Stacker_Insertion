@@ -57,10 +57,11 @@ class Stacker(HeldAssetCfg):
 
 @configclass
 class ContainerCornerCasting(FixedAssetCfg):
-    usd_path = f"{LOCAL_ASSET_DIR}/factory_container_corner_casting.usd"
+    usd_path = f"{LOCAL_ASSET_DIR}/c_corner_positioned_2.usd"
     diameter = 0.142  # X-dimension (insertion point width)
-    height = 0.118    # Z-dimension (height)
-    base_height = 0.025  # Base height for CoM calculation (estimate)
+    # height = 0.118    # Z-dimension (height)
+    height = 0.0    # Z-dimension (height)
+    base_height = 0.0696  # Stacker_lowest point to container lowest point difference during insertion
     friction = 0.75
     mass = 10.0
 
@@ -70,22 +71,22 @@ class ForgeStackerInsert(ForgeTask):
     name = "stacker_insert"
     fixed_asset_cfg = ContainerCornerCasting()
     held_asset_cfg = Stacker()
-    asset_size = 50.0  # Size in mm
-    duration_s = 15.0  # Longer duration for more complex insertion
+    asset_size = 120.0  # Size in mm
+    duration_s = 10.0  # duration of each episode
 
     # Robot initialization
-    hand_init_pos: list = [-0.009, -0.018, -0.12]  # Relative to fixed asset tip
-    # hand_init_pos_noise: list = [0.03, 0.03, 0.02]  # Slightly more noise for larger objects
-    hand_init_pos_noise: list = [0.00, 0.00, 0.0]
+    hand_init_pos: list = [-0.00, -0.00, -0.225]  # Relative to fixed asset tip
+    hand_init_pos_noise: list = [0.03, 0.03, 0.02]  # Slightly more noise for larger objects
+    # hand_init_pos_noise: list = [0.00, 0.00, 0.0]
     hand_init_orn: list = [0.0, 0.0, -1.571-0.524]
-    # hand_init_orn_noise: list = [0.2, 0.2, 0.2]  # No orientation noise for deterministic behavior
-    hand_init_orn_noise: list = [0.0, 0.0, 0.0]
+    hand_init_orn_noise: list = [0.2, 0.2, 0.2]  # No orientation noise for deterministic behavior
+    # hand_init_orn_noise: list = [0.0, 0.0, 0.0]
 
     # Fixed Asset (container corner casting)
-    # fixed_asset_init_pos_noise: list = [0.05, 0.05, 0.05]
-    fixed_asset_init_pos_noise: list = [0.0, 0.0, 0.0]
-    fixed_asset_init_orn_deg: float = 0.0
-    fixed_asset_init_orn_range_deg: float = 0.0
+    fixed_asset_init_pos_noise: list = [0.05, 0.05, 0.05]
+    # fixed_asset_init_pos_noise: list = [0.0, 0.0, 0.0]
+    fixed_asset_init_orn_deg: float = 90.0  # Fixed asset yaw angle
+    fixed_asset_init_orn_range_deg: float = 0.5  # Fixed asset yaw angle noise range
 
     # Held Asset (stacker)
     held_asset_pos_noise: list = [0.000, 0.000, 0.000]  # Noise level in gripper
@@ -114,8 +115,8 @@ class ForgeStackerInsert(ForgeTask):
             ),
         ),
         init_state=RigidObjectCfg.InitialStateCfg(
-            pos=(-0.0937, 0.222, 0.99), 
-            rot=(0.0, -1.0, 0.0 , 0.0)
+            pos=(-0.0937, 0.222, 1.09), 
+            rot=(0.7071068, 0.0, 0.0 , 0.7071068)
         ),
     )
     

@@ -98,7 +98,7 @@ def get_target_held_base_pose(fixed_pos, fixed_quat, task_name, fixed_asset_cfg,
     elif task_name == "stacker_insert":
         # For stacker insert, position the stacker at the insertion point
         # The stacker should be inserted into the container corner casting
-        fixed_success_pos_local[:, 2] = fixed_asset_cfg.base_height  # Insert at the base height
+        fixed_success_pos_local[:, 2] = -fixed_asset_cfg.base_height  # Insert at the base height
     else:
         raise NotImplementedError("Task not implemented")
     fixed_success_quat_local = torch.tensor([1.0, 0.0, 0.0, 0.0], device=device).unsqueeze(0).repeat(num_envs, 1)

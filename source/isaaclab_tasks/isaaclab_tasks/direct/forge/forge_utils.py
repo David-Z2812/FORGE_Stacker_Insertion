@@ -33,3 +33,8 @@ def change_FT_frame(source_F, source_T, source_frame, target_frame):
         target_T_source_quat, (source_T + torch.cross(target_T_source_pos, source_F, dim=-1))
     )
     return target_F, target_T
+
+
+# Normalize angles to principal range (-pi, pi] so values like 350deg become -10deg.
+def wrap_angles(a: torch.Tensor) -> torch.Tensor:
+    return torch.atan2(torch.sin(a), torch.cos(a))

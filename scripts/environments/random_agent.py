@@ -62,7 +62,9 @@ def main():
             # env.step(actions)
 
             actions = torch.zeros(env.action_space.shape, device=env.unwrapped.device)
-            actions[0, 2] = 0.001
+            actions[0, 2] = 0  # z
+            # print the action
+            print(f"[RANDOM_AGENT]: Action: {actions}")
             # Print the reward returned by the environment
             obs, reward, terminated, truncated, info = env.step(actions)
             # Print total reward

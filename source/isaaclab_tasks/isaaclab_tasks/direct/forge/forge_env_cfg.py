@@ -152,4 +152,4 @@ class ForgeTaskNutThreadCfg(ForgeEnvCfg):
 class ForgeTaskStackerInsertCfg(ForgeEnvCfg):
     task_name = "stacker_insert"
     task = ForgeStackerInsert()
-    episode_length_s = 15.0
+    episode_length_s = 10.0

@@ -79,9 +79,9 @@ class ForgeEnv(FactoryEnv):
             # held_asset_relative_quat = torch_utils.quat_mul(rot_quat, held_asset_relative_quat)
             # held_asset_relative_quat = torch.tensor([0, 0, -0.7071068, 0.7071068], device=self.device).expand(self.num_envs, 4).clone()
             held_asset_relative_quat = torch.tensor([1.0, 0.0, 0.0, 0.0], device=self.device).expand(self.num_envs, 4).clone()
-            # print(f"DEBUG: Relative pose (already grasped) - pos: {held_asset_relative_pos[0]}, quat: {held_asset_relative_quat[0]}")
-            # print(f"DEBUG: Gripper orientation: {self.fingertip_midpoint_quat}")
-            # print(f"DEBUG: Gripper relative: {held_asset_relative_quat}")
+            # # print(f"DEBUG: Relative pose (already grasped) - pos: {held_asset_relative_pos[0]}, quat: {held_asset_relative_quat[0]}")
+            # # print(f"DEBUG: Gripper orientation: {self.fingertip_midpoint_quat}")
+            # # print(f"DEBUG: Gripper relative: {held_asset_relative_quat}")
 
             
             return held_asset_relative_pos, held_asset_relative_quat
@@ -186,26 +186,33 @@ class ForgeEnv(FactoryEnv):
         pos_actions = pos_actions @ torch.diag(torch.tensor(self.cfg.ctrl.pos_action_bounds, device=self.device))
 
         rot_actions = self.actions[:, 3:6]
+        # print(f"rot_actions (raw): {rot_actions[0]}")
         rot_actions = rot_actions @ torch.diag(torch.tensor(self.cfg.ctrl.rot_action_bounds, device=self.device))
-
+        # print(f"rot_actions (scaled): {rot_actions[0]}")
         # Step (1): Compute desired pose targets in EE frame.
         # (1.a) Position. Action frame is assumed to be the top of the bolt (noisy estimate).
         fixed_pos_action_frame = self.fixed_pos_obs_frame + self.init_fixed_pos_obs_noise
+        # print("----")
+        # print(f"DEBUG: Fixed asset pos (noisy): {fixed_pos_action_frame[0]}")
+        # print("----")
         ctrl_target_fingertip_preclipped_pos = fixed_pos_action_frame + pos_actions
         # (1.b) Enforce rotation action constraints.
         rot_actions[:, 0:2] = 0.0
 
         # Assumes joint limit is in (+x, -y)-quadrant of world frame.
-        rot_actions[:, 2] = np.deg2rad(-180.0) + np.deg2rad(270.0) * (rot_actions[:, 2] + 1.0) / 2.0  # Joint limit.
+        # rot_actions[:, 2] = np.deg2rad(-180.0) + np.deg2rad(270.0) * (rot_actions[:, 2] + 1.0) / 2.0  # Joint limit.
+        # print(f"rot_actions (after joint limit): {rot_actions[0]}")
         # (1.c) Get desired orientation target.
         bolt_frame_quat = torch_utils.quat_from_euler_xyz(
             roll=rot_actions[:, 0], pitch=rot_actions[:, 1], yaw=rot_actions[:, 2]
         )
 
-        rot_180_euler = torch.tensor([np.pi, 0.0, 0.0], device=self.device).repeat(self.num_envs, 1)
+        rot_180_euler = torch.tensor([0.0, 0.0, 0.0], device=self.device).repeat(self.num_envs, 1)  # No 180 deg rotation
         quat_bolt_to_ee = torch_utils.quat_from_euler_xyz(
             roll=rot_180_euler[:, 0], pitch=rot_180_euler[:, 1], yaw=rot_180_euler[:, 2]
         )
+        # print(f"bolt_frame_quat", bolt_frame_quat)
+        # print(f"quat_bolt_to_ee", quat_bolt_to_ee)
 
         ctrl_target_fingertip_preclipped_quat = torch_utils.quat_mul(quat_bolt_to_ee, bolt_frame_quat)
 
@@ -221,34 +228,45 @@ class ForgeEnv(FactoryEnv):
 
         # (2.b.i) Get current and desired Euler angles.
         curr_roll, curr_pitch, curr_yaw = torch_utils.get_euler_xyz(self.fingertip_midpoint_quat)
+        curr_roll = forge_utils.wrap_angles(curr_roll)
+        curr_pitch = forge_utils.wrap_angles(curr_pitch)
+        curr_yaw = forge_utils.wrap_angles(curr_yaw)
+
         desired_roll, desired_pitch, desired_yaw = torch_utils.get_euler_xyz(ctrl_target_fingertip_preclipped_quat)
+        desired_yaw = torch.ones((self.num_envs,), device=self.device) * -2.0943951  # Keep yaw at -120 for stacker insert
         desired_xyz = torch.stack([desired_roll, desired_pitch, desired_yaw], dim=1)
 
         # (2.b.ii) Correct the direction of motion to avoid joint limit.
         # Map yaws between [-125, 235] degrees (so that angles appear on a continuous span uninterrupted by the joint limit).
         curr_yaw = factory_utils.wrap_yaw(curr_yaw)
         desired_yaw = factory_utils.wrap_yaw(desired_yaw)
-
+        # print(f"curr_yaw (deg): {np.rad2deg(curr_yaw[0].cpu().item())}, desired_yaw (deg): {np.rad2deg(desired_yaw[0].cpu().item())}")
         # (2.b.iii) Clip motion in the correct direction.
         self.delta_yaw = desired_yaw - curr_yaw  # Used later for action_penalty.
+        # print(f"delta_yaw (deg): {np.rad2deg(self.delta_yaw[0].cpu().item())}")
         clipped_yaw = torch.clip(self.delta_yaw, -self.rot_threshold[:, 2], self.rot_threshold[:, 2])
+        # print(f"clipped_yaw (deg): {np.rad2deg(clipped_yaw[0].cpu().item())}")
         desired_xyz[:, 2] = curr_yaw + clipped_yaw
+        # print(f"clipped_yaw: {clipped_yaw[0]}")
 
         # (2.b.iv) Clip roll and pitch.
         desired_roll = torch.where(desired_roll < 0.0, desired_roll + 2 * torch.pi, desired_roll)
         desired_pitch = torch.where(desired_pitch < 0.0, desired_pitch + 2 * torch.pi, desired_pitch)
 
         delta_roll = desired_roll - curr_roll
+        # print(f"delta_roll (deg): {np.rad2deg(delta_roll[0].cpu().item())}")
         clipped_roll = torch.clip(delta_roll, -self.rot_threshold[:, 0], self.rot_threshold[:, 0])
         desired_xyz[:, 0] = curr_roll + clipped_roll
 
         curr_pitch = torch.where(curr_pitch > torch.pi, curr_pitch - 2 * torch.pi, curr_pitch)
         desired_pitch = torch.where(desired_pitch > torch.pi, desired_pitch - 2 * torch.pi, desired_pitch)
-
+        # print(f"curr_pitch (deg): {np.rad2deg(curr_pitch[0].cpu().item())}, desired_pitch (deg): {np.rad2deg(desired_pitch[0].cpu().item())}")
+        # print(f"curr_roll (deg): {np.rad2deg(curr_roll[0].cpu().item())}, desired_roll (deg): {np.rad2deg(desired_roll[0].cpu().item())}")
         delta_pitch = desired_pitch - curr_pitch
+        # print(f"delta_pitch (deg): {np.rad2deg(delta_pitch[0].cpu().item())}")
         clipped_pitch = torch.clip(delta_pitch, -self.rot_threshold[:, 1], self.rot_threshold[:, 1])
         desired_xyz[:, 1] = curr_pitch + clipped_pitch
-
+        # print(f"clipped_roll: {clipped_roll[0]}, clipped_pitch: {clipped_pitch[0]}")
         ctrl_target_fingertip_midpoint_quat = torch_utils.quat_from_euler_xyz(
             roll=desired_xyz[:, 0], pitch=desired_xyz[:, 1], yaw=desired_xyz[:, 2]
         )
@@ -258,6 +276,21 @@ class ForgeEnv(FactoryEnv):
             ctrl_target_fingertip_midpoint_quat=ctrl_target_fingertip_midpoint_quat,
             ctrl_target_gripper_dof_pos=0.0,
         )
+
+        # print(f"DEBUG: Target pos: {ctrl_target_fingertip_midpoint_pos[0]}")
+        target_roll, target_pitch, target_yaw = torch_utils.get_euler_xyz(ctrl_target_fingertip_midpoint_quat)
+        deg_target_roll = np.rad2deg(target_roll[0].cpu().item())
+        deg_target_pitch = np.rad2deg(target_pitch[0].cpu().item())
+        deg_target_yaw = np.rad2deg(target_yaw[0].cpu().item())
+        # print(f"DEBUG: Target rot (deg): roll={deg_target_roll:.2f}, pitch={deg_target_pitch:.2f}, yaw={deg_target_yaw:.2f}")
+        # print(f"DEBUG: Current pos: {self.fingertip_midpoint_pos[0]}")
+        curr_roll, curr_pitch, curr_yaw = torch_utils.get_euler_xyz(self.fingertip_midpoint_quat)
+        deg_roll = np.rad2deg(curr_roll[0].cpu().item())
+        deg_pitch = np.rad2deg(curr_pitch[0].cpu().item())
+        deg_yaw = np.rad2deg(curr_yaw[0].cpu().item())
+        # print(f"DEBUG: Current rot (deg): roll={deg_roll:.2f}, pitch={deg_pitch:.2f}, yaw={deg_yaw:.2f}")
+        rot_deg = np.rad2deg(rot_actions[0].cpu().numpy())
+        # print(f"DEBUG: Action pos: {pos_actions[0]}, rot (deg): {rot_deg}")
 
     def _get_rewards(self):
         """FORGE reward includes a contact penalty and success prediction error."""
@@ -311,7 +344,7 @@ class ForgeEnv(FactoryEnv):
         self.actions[:, 0:3] = self.prev_actions[:, 0:3] = pos_actions
 
         # Relative yaw to bolt.
-        unrot_180_euler = torch.tensor([-np.pi, 0.0, 0.0], device=self.device).repeat(self.num_envs, 1)
+        unrot_180_euler = torch.tensor([0.0, 0.0, 0.0], device=self.device).repeat(self.num_envs, 1)    # No 180 deg rotation
         unrot_quat = torch_utils.quat_from_euler_xyz(
             roll=unrot_180_euler[:, 0], pitch=unrot_180_euler[:, 1], yaw=unrot_180_euler[:, 2]
         )
@@ -324,9 +357,13 @@ class ForgeEnv(FactoryEnv):
         fingertip_yaw_bolt = torch.where(
             fingertip_yaw_bolt < -torch.pi, fingertip_yaw_bolt + 2 * torch.pi, fingertip_yaw_bolt
         )
-
+        # print(f"fingertip_yaw_bolt (rad): {fingertip_yaw_bolt[0]}")
         yaw_action = (fingertip_yaw_bolt + np.deg2rad(180.0)) / np.deg2rad(270.0) * 2.0 - 1.0
-        self.actions[:, 5] = self.prev_actions[:, 5] = yaw_action
+        # print(f"yaw_action (rescaled): {yaw_action[0]}")
+
+        # Set yaw action to zero (keep at -120 degrees) for stacker insert task
+        if self.cfg_task.name != "stacker_insert":
+            self.actions[:, 5] = self.prev_actions[:, 5] = yaw_action
         self.actions[:, 6] = self.prev_actions[:, 6] = -1.0
 
         # EMA randomization.
@@ -431,6 +468,7 @@ class ForgeEnv(FactoryEnv):
         fixed_state = self._fixed_asset.data.default_root_state.clone()[env_ids]
         fixed_state[:, 0:3] += self.scene.env_origins[env_ids]
         fixed_state[:, 7:] = 0.0
+        # print(f"DEBUG: Resetting fixed asset to pos: {fixed_state[0,0:3]}, rot (quat): {fixed_state[0,3:7]}")
         self._fixed_asset.write_root_pose_to_sim(fixed_state[:, 0:7], env_ids=env_ids)
         # Skip setting velocity for kinematic body
         # self._fixed_asset.write_root_velocity_to_sim(fixed_state[:, 7:], env_ids=env_ids)
@@ -447,29 +485,31 @@ class ForgeEnv(FactoryEnv):
         # Skip the table - we'll add a mount instead
         # (Table code removed)
 
-        # Add mount for robot to hang from
-        from isaaclab.assets import RigidObject, RigidObjectCfg
+        # # Add mount for robot to hang from
+        # from isaaclab.assets import RigidObject, RigidObjectCfg
         
-        mount_cfg = RigidObjectCfg(
-            prim_path="/World/envs/env_.*/Mount",
-            spawn=sim_utils.UsdFileCfg(
-                usd_path = str(Path(__file__).resolve().parents[4] / "isaaclab_assets/data/Factory/mount_collision_2.usd"),
-                rigid_props=sim_utils.RigidBodyPropertiesCfg(
-                    kinematic_enabled=True,  # Make it static
-                    disable_gravity=True,
-                ),
-                collision_props=sim_utils.CollisionPropertiesCfg(
-                    collision_enabled=True,
-                ),
-            ),
-            init_state=RigidObjectCfg.InitialStateCfg(
-                pos=(0.0, 0.0, 0.0),  # Position above ground
-                rot=( 0, 0, 0.7071068, 0.7071068 ),  # 
-            ),
-        )
-        self._mount = RigidObject(mount_cfg)
+        # mount_cfg = RigidObjectCfg(
+        #     prim_path="/World/envs/env_.*/Mount",
+        #     spawn=sim_utils.UsdFileCfg(
+        #         usd_path = str(Path(__file__).resolve().parents[4] / "isaaclab_assets/data/Factory/mount_collision_2.usd"),
+        #         rigid_props=sim_utils.RigidBodyPropertiesCfg(
+        #             kinematic_enabled=True,  # Make it static
+        #             disable_gravity=True,
+        #         ),
+        #         collision_props=sim_utils.CollisionPropertiesCfg(
+        #             collision_enabled=True,
+        #         ),
+        #     ),
+        #     init_state=RigidObjectCfg.InitialStateCfg(
+        #         pos=(0.0, 0.0, 0.0),  # Position above ground
+        #         # rot=(1.0, 0.0, 0.0, 0.0),  # No rotation
+        #         rot=( 0.7071068, 0.7071068, 0.0, 0.0 ),  # 90° around x rotation
+        #     ),
+        # )
+        # self._mount = RigidObject(mount_cfg)
 
         # Create robot (still uses Articulation) - modify config for upside down hanging
+        
         from isaaclab.assets import ArticulationCfg
 
 
@@ -576,9 +616,16 @@ class ForgeEnv(FactoryEnv):
         fixed_state[:, 3:7] = fixed_orn_quat
         # (1.c.) Velocity
         fixed_state[:, 7:] = 0.0  # vel
+        # print("DEBUG: Randomized fixed asset to pos: {}, rot (quat): {}".format(fixed_state[0,0:3], fixed_state[0,3:7]))
         # (1.d.) Update values.
         self._fixed_asset.write_root_pose_to_sim(fixed_state[:, 0:7], env_ids=env_ids)
-        self._fixed_asset.write_root_velocity_to_sim(fixed_state[:, 7:], env_ids=env_ids)
+        # Avoid setting velocities on kinematic bodies (PhysX requires bodies to be non-kinematic
+        # when setting linear/angular velocity). If the asset was configured as kinematic, skip
+        # writing velocity to simulation. Use the configured spawn rigid_props to determine this.
+        rprops = getattr(self._fixed_asset.cfg.spawn, "rigid_props", None)
+        is_kinematic = bool(getattr(rprops, "kinematic_enabled", False)) if rprops is not None else False
+        if not is_kinematic:
+            self._fixed_asset.write_root_velocity_to_sim(fixed_state[:, 7:], env_ids=env_ids)
         self._fixed_asset.reset()
 
         # (1.e.) Noisy position observation.
@@ -621,9 +668,9 @@ class ForgeEnv(FactoryEnv):
             
             # Debug: Print target position for stacker_insert
             # if self.cfg_task.name == "stacker_insert":
-            #     print(f"DEBUG: Target TCP position for stacker_insert: {above_fixed_pos[0]}")
-            #     print(f"DEBUG: Fixed tip position: {fixed_tip_pos[0]}")
-            #     print(f"DEBUG: Hand init pos Z offset: {self.cfg_task.hand_init_pos[2]}")
+            #     # print(f"DEBUG: Target TCP position for stacker_insert: {above_fixed_pos[0]}")
+            #     # print(f"DEBUG: Fixed tip position: {fixed_tip_pos[0]}")
+            #     # print(f"DEBUG: Hand init pos Z offset: {self.cfg_task.hand_init_pos[2]}")
 
             rand_sample = torch.rand((n_bad, 3), dtype=torch.float32, device=self.device)
             above_fixed_pos_rand = 2 * (rand_sample - 0.5)  # [-1, 1]
@@ -647,10 +694,10 @@ class ForgeEnv(FactoryEnv):
 
             # Debug: Print target and actual TCP positions for stacker_insert
             # if self.cfg_task.name == "stacker_insert":
-            #     print(f"DEBUG: Target TCP position: {above_fixed_pos[0]}")
-            #     print(f"DEBUG: Actual TCP position: {self.fingertip_midpoint_pos[0]}")
-            #     print(f"DEBUG: Hand down quat: {hand_down_quat[0]}")
-            #     print(f"DEBUG: Hand down euler: {hand_down_euler[0]}")
+            #     # print(f"DEBUG: Target TCP position: {above_fixed_pos[0]}")
+            #     # print(f"DEBUG: Actual TCP position: {self.fingertip_midpoint_pos[0]}")
+            #     # print(f"DEBUG: Hand down quat: {hand_down_quat[0]}")
+            #     # print(f"DEBUG: Hand down euler: {hand_down_euler[0]}")
 
             # (c) iterative IK Method
             pos_error, aa_error = self.set_pos_inverse_kinematics(
@@ -697,7 +744,7 @@ class ForgeEnv(FactoryEnv):
 
 
         # (3) DIRECT POSITIONING: Position stacker directly under gripper for upside-down robot
-        # print(f"DEBUG: Fingertip position before positioning: {self.fingertip_midpoint_pos[0]}")
+        # # print(f"DEBUG: Fingertip position before positioning: {self.fingertip_midpoint_pos[0]}")
         
         # Get the relative positioning (should be negative Z for below gripper)
         held_asset_relative_pos, held_asset_relative_quat = self.get_handheld_asset_relative_pose()
@@ -706,11 +753,11 @@ class ForgeEnv(FactoryEnv):
         translated_held_asset_pos = self.fingertip_midpoint_pos + held_asset_relative_pos
         translated_held_asset_quat = torch_utils.quat_mul(self.fingertip_midpoint_quat, held_asset_relative_quat)
         
-        # print(f"DEBUG: Calculated stacker position (fingertip + relative): {translated_held_asset_pos[0]}")
-        # print(f"DEBUG: Relative offset used: {held_asset_relative_pos[0]}")
+        # # print(f"DEBUG: Calculated stacker position (fingertip + relative): {translated_held_asset_pos[0]}")
+        # # print(f"DEBUG: Relative offset used: {held_asset_relative_pos[0]}")
 
         # Skip asset in hand randomization for consistent training
-        # print(f"DEBUG: Using deterministic positioning (no randomization)")
+        # # print(f"DEBUG: Using deterministic positioning (no randomization)")
 
         held_state = self._held_asset.data.default_root_state.clone()
         held_state[:, 0:3] = translated_held_asset_pos + self.scene.env_origins
@@ -733,10 +780,10 @@ class ForgeEnv(FactoryEnv):
         self.step_sim_no_action()
 
         # SKIP GRIPPING: Stacker is already grasped, just set gripper to closed position
-        # print("DEBUG: Skipping gripping - stacker already in gripper for insertion training")
-        # print(f"Stacker position: {self._held_asset.data.root_pos_w[0]}")
-        # print(f"Fingertip position: {self.fingertip_midpoint_pos[0]}")
-        self.step_sim_no_action()
+        # # print("DEBUG: Skipping gripping - stacker already in gripper for insertion training")
+        # # print(f"Stacker position: {self._held_asset.data.root_pos_w[0]}")
+        # # print(f"Fingertip position: {self.fingertip_midpoint_pos[0]}")
+        # self.step_sim_no_action()
         # wait_time = 0.0
         # while wait_time < 0.55:
         #     self.step_sim_no_action(render=True)
@@ -747,14 +794,14 @@ class ForgeEnv(FactoryEnv):
 
         grasp_time = 0.0
         while grasp_time < 1.5:
-            #print(f"DEBUG: Waiting for gripper to close - time: {grasp_time}")
+            ## print(f"DEBUG: Waiting for gripper to close - time: {grasp_time}")
             self.ctrl_target_joint_pos[env_ids, 7:] = 0.0  # Close gripper.
             self._robot.set_joint_position_target(self.ctrl_target_joint_pos)
-            #print(f"DEBUG: Gripper position: {self._robot.data.joint_pos[env_ids, 7:]}")
+            ## print(f"DEBUG: Gripper position: {self._robot.data.joint_pos[env_ids, 7:]}")
             #self.close_gripper_in_place()
             self.step_sim_no_action()   
             grasp_time += self.sim.get_physics_dt()
-        # print(f"DEBUG: Gripper position: {self._robot.data.joint_pos[env_ids, 7:]}")
+        # # print(f"DEBUG: Gripper position: {self._robot.data.joint_pos[env_ids, 7:]}")
 
         # while(True):
         #     self.step_sim_no_action(render=True)
@@ -775,4 +822,39 @@ class ForgeEnv(FactoryEnv):
         self.task_prop_gains = self.default_gains
         self.task_deriv_gains = factory_utils.get_deriv_gains(self.default_gains)
 
+        # # Ensure controller target equals current fingertip pose to avoid commanded drift.
+        # # Log current fingertip vs ctrl target for env 0 for debugging.
+        # try:
+        #     # If ctrl target attributes exist, set them to current measured pose
+        #     if hasattr(self, 'ctrl_target_fingertip_midpoint_pos'):
+        #         self.ctrl_target_fingertip_midpoint_pos = self.fingertip_midpoint_pos.clone()
+        #     if hasattr(self, 'ctrl_target_fingertip_midpoint_quat'):
+        #         self.ctrl_target_fingertip_midpoint_quat = self.fingertip_midpoint_quat.clone()
+        #     # Some env variants may use ctrl_target_joint_pos
+        #     if hasattr(self, 'ctrl_target_joint_pos'):
+        #         self.ctrl_target_joint_pos[:, :7] = self.joint_pos[:, :7]
+
+        #     # Guarded print for a single env index to avoid flooding logs
+        #     if self.fingertip_midpoint_pos.shape[0] > 0:
+        #         idx = 0
+        #         pos = self.fingertip_midpoint_pos[idx].cpu().numpy()
+        #         # Compute what the ctrl target would be using current actions (same logic as _apply_action)
+        #         try:
+        #             pos_actions = self.actions[:, 0:3]
+        #             pos_bounds = torch.tensor(self.cfg.ctrl.pos_action_bounds, device=self.device)
+        #             pos_actions = pos_actions @ torch.diag(pos_bounds)
+        #             fixed_pos_action_frame = self.fixed_pos_obs_frame + self.init_fixed_pos_obs_noise
+        #             ctrl_target_preclipped_pos = fixed_pos_action_frame + pos_actions
+        #             delta_pos = ctrl_target_preclipped_pos - self.fingertip_midpoint_pos
+        #             pos_error_clipped = torch.clip(delta_pos, -self.pos_threshold, self.pos_threshold)
+        #             ctrl_tgt_pos = (self.fingertip_midpoint_pos + pos_error_clipped)[idx].cpu().numpy()
+        #         except Exception:
+        #             ctrl_tgt_pos = None
+
+        #         # print(f"DEBUG: fingertip_pos[{idx}]: {pos}, computed_ctrl_target_pos[{idx}]: {ctrl_tgt_pos}")
+        # except Exception as e:
+        #     # print(f"DEBUG: error while setting/printing ctrl targets: {e}")
+
         physics_sim_view.set_gravity(carb.Float3(*self.cfg.sim.gravity))
+
+        # # print("DEBUG_FT:", self.force_sensor_world_smooth[0].cpu().numpy(), "noisy_force:", self.noisy_force[0].cpu().numpy())

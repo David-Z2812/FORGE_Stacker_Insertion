@@ -63,8 +63,10 @@ class CtrlCfg:
 
     # Null space parameters.
     default_dof_pos_tensor = [-1.3003, -0.4015, 1.1791, -2.1493, 0.4001, 1.9425, 0.4754]
-    kp_null = 10.0
-    kd_null = 6.3246
+    # kp_null = 10.0
+    kp_null = 0.0
+    # kd_null = 6.3246
+    kd_null = 0.0
 
 
 @configclass

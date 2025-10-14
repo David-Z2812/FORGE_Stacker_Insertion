@@ -758,14 +758,21 @@ class ForgeEnv(FactoryEnv):
 
         # Skip asset in hand randomization for consistent training
         # # print(f"DEBUG: Using deterministic positioning (no randomization)")
-
+        # print(f"DEBUG: Environment origins: {self.scene.env_origins}")
         held_state = self._held_asset.data.default_root_state.clone()
-        held_state[:, 0:3] = translated_held_asset_pos + self.scene.env_origins
+        held_state[:, 0:3] = translated_held_asset_pos #+ self.scene.env_origins
         held_state[:, 3:7] = translated_held_asset_quat
         held_state[:, 7:] = 0.0
         self._held_asset.write_root_pose_to_sim(held_state[:, 0:7])
         self._held_asset.write_root_velocity_to_sim(held_state[:, 7:])
         self._held_asset.reset()
+
+        # print(f"DEBUG: Stacker position after positioning: {translated_held_asset_pos[0]}")
+        # print(f"DEBUG: Stacker orientation after positioning (quat): {translated_held_asset_quat[0]}")
+        # print(f"DEBUG: Hand (TCP) position after positioning: {self.fingertip_midpoint_pos[0]}")
+        # print(f"DEBUG: Hand (TCP) orientation after positioning (quat): {self.fingertip_midpoint_quat[0]}")
+        # print(f"DEBUG: Held asset position (should match stacker): {self._held_asset.data.root_pos_w[0]}")
+        # print(f"DEBUG: Held asset orientation (quat): {self._held_asset.data.root_quat_w[0]}")
 
         #  Close hand
         # Set gains to use for quick resets.
@@ -793,15 +800,15 @@ class ForgeEnv(FactoryEnv):
         #     self.step_sim_no_action(render=True)
 
         grasp_time = 0.0
-        while grasp_time < 1.5:
-            ## print(f"DEBUG: Waiting for gripper to close - time: {grasp_time}")
+        while grasp_time < 0.1:
+            # print(f"DEBUG: Waiting for gripper to close - time: {grasp_time}")
             self.ctrl_target_joint_pos[env_ids, 7:] = 0.0  # Close gripper.
             self._robot.set_joint_position_target(self.ctrl_target_joint_pos)
-            ## print(f"DEBUG: Gripper position: {self._robot.data.joint_pos[env_ids, 7:]}")
-            #self.close_gripper_in_place()
-            self.step_sim_no_action()   
+            # print(f"DEBUG: Gripper position: {self._robot.data.joint_pos[env_ids, 7:]}")
+            # self.close_gripper_in_place()
+            self.step_sim_no_action()
             grasp_time += self.sim.get_physics_dt()
-        # # print(f"DEBUG: Gripper position: {self._robot.data.joint_pos[env_ids, 7:]}")
+        # print(f"DEBUG: Gripper position: {self._robot.data.joint_pos[env_ids, 7:]}")
 
         # while(True):
         #     self.step_sim_no_action(render=True)

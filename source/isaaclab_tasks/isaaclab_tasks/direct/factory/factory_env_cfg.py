@@ -153,7 +153,7 @@ class FactoryEnvCfg(DirectRLEnvCfg):
                 "panda_joint5": -0.00083,
                 "panda_joint6": 1.38774,
                 "panda_joint7": 0.0,
-                "panda_finger_joint2": 0.04,
+                "panda_finger_joint2": 0.02,
             },
             pos=(0.0, 0.0, 0.0),
             rot=(1.0, 0.0, 0.0, 0.0),
@@ -180,7 +180,7 @@ class FactoryEnvCfg(DirectRLEnvCfg):
             "panda_hand": ImplicitActuatorCfg(
                 joint_names_expr=["panda_finger_joint[1-2]"],
                 effort_limit_sim=40.0,
-                velocity_limit_sim=0.04,
+                velocity_limit_sim=0.4*100, # NOTE: increased for gripper to close faster
                 stiffness=7500.0,
                 damping=173.0,
                 friction=0.1,

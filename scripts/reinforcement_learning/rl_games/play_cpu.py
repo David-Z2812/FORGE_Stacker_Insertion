@@ -318,7 +318,7 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
                 agent.init_rnn()
                 if agent.states is not None:
                     agent.states = [s.to("cpu") for s in agent.states]
-                print("[INFO]: Reinitialized RNN hidden states on CPU.")
+                # print("[INFO]: Reinitialized RNN hidden states on CPU.")
 
             actions = agent.get_action(obs, is_deterministic=agent.is_deterministic)
             # env stepping

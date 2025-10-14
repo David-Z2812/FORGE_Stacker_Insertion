@@ -242,8 +242,9 @@ class FactoryEnv(DirectRLEnv):
         ctrl_target_fingertip_midpoint_quat = torch_utils.quat_mul(rot_actions_quat, self.fingertip_midpoint_quat)
 
         target_euler_xyz = torch.stack(torch_utils.get_euler_xyz(ctrl_target_fingertip_midpoint_quat), dim=1)
-        target_euler_xyz[:, 0] = 3.14159
-        target_euler_xyz[:, 1] = 0.0
+        # target_euler_xyz[:, 0] = 0.0
+        # target_euler_xyz[:, 1] = 0.0
+        # target_euler_xyz[:, 2] = -2.0943951
 
         ctrl_target_fingertip_midpoint_quat = torch_utils.quat_from_euler_xyz(
             roll=target_euler_xyz[:, 0], pitch=target_euler_xyz[:, 1], yaw=target_euler_xyz[:, 2]

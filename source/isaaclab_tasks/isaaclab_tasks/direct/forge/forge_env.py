@@ -808,7 +808,7 @@ class ForgeEnv(FactoryEnv):
             # self.close_gripper_in_place()
             self.step_sim_no_action()
             grasp_time += self.sim.get_physics_dt()
-        # print(f"DEBUG: Gripper position: {self._robot.data.joint_pos[env_ids, 7:]}")
+        print(f"DEBUG: Gripper position: {self._robot.data.joint_pos[env_ids, 7:]}")
 
         # while(True):
         #     self.step_sim_no_action(render=True)

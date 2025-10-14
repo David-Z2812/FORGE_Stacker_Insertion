@@ -75,7 +75,7 @@ class ForgeStackerInsert(ForgeTask):
     duration_s = 10.0  # duration of each episode
 
     # Robot initialization
-    hand_init_pos: list = [0.00, 0.00, -0.125]  # Relative to fixed asset tip
+    hand_init_pos: list = [0.00, 0.00, -0.225]  # Relative to fixed asset tip
     hand_init_pos_noise: list = [0.03, 0.03, 0.02]  # Slightly more noise for larger objects
     # hand_init_pos_noise: list = [0.00, 0.00, 0.0]
     hand_init_orn: list = [0.0, 0.0, -1.571-0.524]

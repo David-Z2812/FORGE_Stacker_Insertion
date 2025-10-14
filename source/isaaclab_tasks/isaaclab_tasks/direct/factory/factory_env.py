@@ -363,7 +363,7 @@ class FactoryEnv(DirectRLEnv):
         )
 
         xy_dist = torch.linalg.vector_norm(target_held_base_pos[:, 0:2] - held_base_pos[:, 0:2], dim=1)
-        z_disp = held_base_pos[:, 2] - target_held_base_pos[:, 2]
+        z_disp = -held_base_pos[:, 2] + target_held_base_pos[:, 2]
 
         is_centered = torch.where(xy_dist < 0.0025, torch.ones_like(curr_successes), torch.zeros_like(curr_successes))
         # Height threshold to target

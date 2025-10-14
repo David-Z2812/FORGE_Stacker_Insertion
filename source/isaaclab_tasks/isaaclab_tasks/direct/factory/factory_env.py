@@ -364,8 +364,11 @@ class FactoryEnv(DirectRLEnv):
 
         xy_dist = torch.linalg.vector_norm(target_held_base_pos[:, 0:2] - held_base_pos[:, 0:2], dim=1)
         z_disp = -held_base_pos[:, 2] + target_held_base_pos[:, 2]
+        # print(f"DEBUG: XY Dist: {xy_dist}")
+        # print(f"DEBUG: Z Disp: {z_disp}")
+        
 
-        is_centered = torch.where(xy_dist < 0.0025, torch.ones_like(curr_successes), torch.zeros_like(curr_successes))
+        is_centered = torch.where(xy_dist < 0.01, torch.ones_like(curr_successes), torch.zeros_like(curr_successes))
         # Height threshold to target
         fixed_cfg = self.cfg_task.fixed_asset_cfg
         if self.cfg_task.name == "peg_insert" or self.cfg_task.name == "gear_mesh":

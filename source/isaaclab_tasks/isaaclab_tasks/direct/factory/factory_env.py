@@ -484,7 +484,7 @@ class FactoryEnv(DirectRLEnv):
             # print("DEBUG_KP target_held_base_pos:", target_held_base_pos[idx].cpu().numpy())
             # print("DEBUG_KP keypoints_held[0]:", keypoints_held[idx].cpu().numpy())
             # print("DEBUG_KP keypoints_fixed[0]:", keypoints_fixed[idx].cpu().numpy())
-            a0, b0 = self.cfg_task.keypoint_coef_baseline
+            # a0, b0 = self.cfg_task.keypoint_coef_baseline
             # print("DEBUG_KP squash a0,b0:", a0, b0, "keypoint_scale:", self.cfg_task.keypoint_scale)
 
         rew_dict = {

@@ -292,6 +292,7 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
     if isinstance(obs, dict):
         obs = obs["obs"]
     timestep = 0
+    ts_step = 0
     # required: enables the flag for batched observations
     _ = agent.get_batch_size(obs, 1)
     # initialize RNN states if used
@@ -322,7 +323,38 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
 
             actions = agent.get_action(obs, is_deterministic=agent.is_deterministic)
             # env stepping
-            obs, _, dones, _ = env.step(actions)
+            obs, rewards, dones, infos = env.step(actions)
+            ts_step += 1
+
+            # compute statistics
+            mean_reward = float(torch.mean(torch.tensor(rewards)).item()) if len(rewards) > 0 else 0.0
+
+            # check for success flags (depends on task implementation)
+            success_flags = []
+            if isinstance(infos, (list, tuple)):
+                for info in infos:
+                    if isinstance(info, dict) and "success" in info:
+                        success_flags.append(float(info["success"]))
+            elif isinstance(infos, dict) and "success" in infos:
+                # sometimes IsaacLab batches infos into one dict with tensors
+                success_tensor = infos["success"]
+                if torch.is_tensor(success_tensor):
+                    success_flags = success_tensor.cpu().numpy().tolist()
+                else:
+                    success_flags = [float(success_tensor)]
+
+            # success rate (fraction of envs with success)
+            success_rate = sum(success_flags) / len(success_flags) if len(success_flags) > 0 else 0.0
+
+            # print every few steps (adjust interval)
+            if ts_step % 1 == 0:
+                elapsed_time = time.time() - start_time
+                sim_time = ts_step * dt
+                print(
+                    f"[{time.strftime('%H:%M:%S')}] Step {ts_step:06d} | "
+                    f"Mean Reward: {mean_reward:+.3f} | Success Rate: {success_rate*100:.1f}% | "
+                    f"Sim Time: {sim_time:.2f} s"
+                )
 
             # perform operations for terminated episodes
             if len(dones) > 0:

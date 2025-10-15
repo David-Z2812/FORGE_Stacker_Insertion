@@ -87,15 +87,16 @@ class ForgeStackerInsert(ForgeTask):
     # fixed_asset_init_pos_noise: list = [0.0, 0.0, 0.0]
     fixed_asset_init_orn_deg: float = 90.0  # Fixed asset yaw angle
     fixed_asset_init_orn_range_deg: float = 0.5  # Fixed asset yaw angle noise range
+    # fixed_asset_init_orn_range_deg: float = 0.0  # Fixed asset yaw angle noise range
 
     # Held Asset (stacker)
     held_asset_pos_noise: list = [0.000, 0.000, 0.000]  # Noise level in gripper
     held_asset_rot_init: float = 0.0
 
     # Rewards - adjusted for stacker insertion
-    keypoint_coef_baseline: list = [5, 4]
-    keypoint_coef_coarse: list = [50, 2]
-    keypoint_coef_fine: list = [100, 0]
+    keypoint_coef_baseline: list = [5, 2]
+    keypoint_coef_coarse: list = [50, 5]
+    keypoint_coef_fine: list = [100, 10]
     success_threshold: float = 0.05  # Fraction of insertion depth
     engage_threshold: float = 0.8
 

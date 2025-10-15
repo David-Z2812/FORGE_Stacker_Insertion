@@ -304,6 +304,7 @@ class ForgeEnv(FactoryEnv):
         # Contact penalty.
         contact_force = torch.norm(self.force_sensor_smooth[:, 0:3], p=2, dim=-1, keepdim=False)
         contact_penalty = torch.nn.functional.relu(contact_force - self.contact_penalty_thresholds)
+        # print(f"Contact force (N): {contact_force[0].cpu().item():.2f}, threshold: {self.contact_penalty_thresholds[0].cpu().item():.2f}, penalty: {contact_penalty[0].cpu().item():.2f}")
         # Add success prediction rewards.
         check_rot = self.cfg_task.name == "nut_thread"
         true_successes = self._get_curr_successes(
@@ -809,7 +810,14 @@ class ForgeEnv(FactoryEnv):
             self.step_sim_no_action()
             grasp_time += self.sim.get_physics_dt()
         # print(f"DEBUG: Gripper position: {self._robot.data.joint_pos[env_ids, 7:]}")
-
+        gripper_pos = self._robot.data.joint_pos[env_ids, 7:]
+        if torch.any(gripper_pos > 0.02):
+            # Convert to CPU numpy for readable printing
+            try:
+                pos_np = gripper_pos.cpu().numpy()
+            except Exception:
+                pos_np = gripper_pos.numpy()
+            print(f"WARNING: Gripper did not close properly during reset, pos: {pos_np}")
         # while(True):
         #     self.step_sim_no_action(render=True)
 

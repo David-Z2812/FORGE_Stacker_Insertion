@@ -363,12 +363,24 @@ class FactoryEnv(DirectRLEnv):
         )
 
         xy_dist = torch.linalg.vector_norm(target_held_base_pos[:, 0:2] - held_base_pos[:, 0:2], dim=1)
+        x_dist = torch.abs(target_held_base_pos[:, 0] - held_base_pos[:, 0])
+        y_dist = torch.abs(target_held_base_pos[:, 1] - held_base_pos[:, 1])
         z_disp = -held_base_pos[:, 2] + target_held_base_pos[:, 2]
+        z_force = self.force_sensor_smooth[:, 2]
         # print(f"DEBUG: XY Dist: {xy_dist}")
+        # print(f"DEBUG: X Dist: {x_dist}")
+        # print(f"DEBUG: Y Dist: {y_dist}")
         # print(f"DEBUG: Z Disp: {z_disp}")
-        
+        # print(f"DEBUG: Z Force: {z_force}")
+        y_max_distance = 0.02
+        x_max_distance = 0.02
+        is_centered = torch.where(
+            torch.logical_and(x_dist < x_max_distance, y_dist < y_max_distance),
+            torch.ones_like(curr_successes),
+            torch.zeros_like(curr_successes),
+        )
 
-        is_centered = torch.where(xy_dist < 0.01, torch.ones_like(curr_successes), torch.zeros_like(curr_successes))
+        # is_centered = torch.where(xy_dist < 0.01, torch.ones_like(curr_successes), torch.zeros_like(curr_successes))
         # Height threshold to target
         fixed_cfg = self.cfg_task.fixed_asset_cfg
         if self.cfg_task.name == "peg_insert" or self.cfg_task.name == "gear_mesh":
@@ -383,7 +395,13 @@ class FactoryEnv(DirectRLEnv):
         is_close_or_below = torch.where(
             z_disp < height_threshold, torch.ones_like(curr_successes), torch.zeros_like(curr_successes)
         )
+        ee_success_force = 5.0  # Newtons
+        is_pressing = torch.where(
+            z_force > ee_success_force, torch.ones_like(curr_successes), torch.zeros_like(curr_successes)
+        )
         curr_successes = torch.logical_and(is_centered, is_close_or_below)
+        if success_threshold < 0.2: #check pressing for success only, not for engagement
+            curr_successes = torch.logical_and(curr_successes, is_pressing)
 
         if check_rot:
             _, _, curr_yaw = torch_utils.get_euler_xyz(self.fingertip_midpoint_quat)
@@ -468,6 +486,9 @@ class FactoryEnv(DirectRLEnv):
                 keypoint_offset.repeat(self.num_envs, 1),
             )[1]
         keypoint_dist = torch.norm(keypoints_held - keypoints_fixed, p=2, dim=-1).mean(-1)
+
+        x_max_distance = 0.0021
+        y_max_distance = 0.0033
 
         a0, b0 = self.cfg_task.keypoint_coef_baseline
         a1, b1 = self.cfg_task.keypoint_coef_coarse

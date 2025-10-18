@@ -355,6 +355,14 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
                     f"Mean Reward: {mean_reward:+.3f} | Success Rate: {success_rate*100:.1f}% | "
                     f"Sim Time: {sim_time:.2f} s"
                 )
+                if isinstance(infos, dict):
+                    subrewards = {k.replace("logs_rew_", ""): v for k, v in infos.items() if k.startswith("logs_rew_")}
+                    if subrewards:
+                        print("[RANDOM_AGENT]: Reward breakdown:")
+                        for name, value in subrewards.items():
+                            if hasattr(value, "item"):
+                                value = value.item()
+                            print(f"   {name}: {value}")
 
             # perform operations for terminated episodes
             if len(dones) > 0:

@@ -180,10 +180,12 @@ class ForgeEnv(FactoryEnv):
         """FORGE actions are defined as targets relative to the fixed asset."""
         if self.last_update_timestamp < self._robot._data._sim_timestamp:
             self._compute_intermediate_values(dt=self.physics_dt)
-
+        
         # Step (0): Scale actions to allowed range.
         pos_actions = self.actions[:, 0:3]
+        # print(f"pos_actions (raw): {pos_actions}  ", end="")
         pos_actions = pos_actions @ torch.diag(torch.tensor(self.cfg.ctrl.pos_action_bounds, device=self.device))
+        # print(f"pos_actions (scaled): {pos_actions}", end="")
 
         rot_actions = self.actions[:, 3:6]
         # print(f"rot_actions (raw): {rot_actions[0]}")
@@ -221,7 +223,9 @@ class ForgeEnv(FactoryEnv):
         self.delta_pos = ctrl_target_fingertip_preclipped_pos - self.fingertip_midpoint_pos  # Used for action_penalty.
         pos_error_clipped = torch.clip(self.delta_pos, -self.pos_threshold, self.pos_threshold)
         ctrl_target_fingertip_midpoint_pos = self.fingertip_midpoint_pos + pos_error_clipped
-
+        # print(f"delta_pos (before clipping): {self.delta_pos}  ", end="")
+        # print(f"delta_pos (after clipping): {pos_error_clipped}")   
+        # print(f"ctrl_target_fingertip_midpoint_pos: {ctrl_target_fingertip_midpoint_pos}")
         # (2.b) Clip orientation targets. Use Euler angles. We assume we are near upright, so
         # clipping yaw will effectively cause slow motions. When we clip, we also need to make
         # sure we avoid the joint limit.

@@ -37,6 +37,14 @@ from isaaclab_tasks.utils import parse_env_cfg
 
 # PLACEHOLDER: Extension template (do not remove this comment)
 
+import os
+if os.getenv("DEBUG_MODE", "0") == "1":
+    import debugpy
+    debugpy.listen(("0.0.0.0", 5678))
+    print("Waiting for VS Code debugger attach on port 5678...")
+    debugpy.wait_for_client()
+
+
 
 def main():
     """Zero actions agent with Isaac Lab environment."""
@@ -59,7 +67,21 @@ def main():
             # compute zero actions
             actions = torch.zeros(env.action_space.shape, device=env.unwrapped.device)
             # apply actions
-            env.step(actions)
+            print(f"actions: {actions} ", end="")
+            obs, reward, terminated, truncated, info = env.step(actions)
+            # Print total reward
+            print(f"[RANDOM_AGENT]: Reward: {reward}")
+
+            # If info contains subreward components, print those as well
+            # Convention: subrewards are in info dict with keys like "logs_rew_*"
+            if isinstance(info, dict):
+                subrewards = {k.replace("logs_rew_", ""): v for k, v in info.items() if k.startswith("logs_rew_")}
+                if subrewards:
+                    print("[RANDOM_AGENT]: Reward breakdown:")
+                    for name, value in subrewards.items():
+                        if hasattr(value, "item"):
+                            value = value.item()
+                        print(f"   {name}: {value}")
 
     # close the simulator
     env.close()

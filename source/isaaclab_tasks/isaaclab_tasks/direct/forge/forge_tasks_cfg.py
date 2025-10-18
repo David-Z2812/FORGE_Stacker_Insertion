@@ -57,11 +57,11 @@ class Stacker(HeldAssetCfg):
 
 @configclass
 class ContainerCornerCasting(FixedAssetCfg):
-    usd_path = f"{LOCAL_ASSET_DIR}/c_corner_positioned_2.usd"
+    usd_path = f"{LOCAL_ASSET_DIR}/c_corner_positioned_3.usd"
     diameter = 0.142  # X-dimension (insertion point width)
     # height = 0.118    # Z-dimension (height)
     height = 0.0    # Z-dimension (height)
-    base_height = 0.0696  # Stacker_lowest point to container lowest point difference during insertion
+    base_height = 0.06799  # Stacker_lowest point to container lowest point difference during insertion
     friction = 0.75
     mass = 10.0
 
@@ -94,11 +94,11 @@ class ForgeStackerInsert(ForgeTask):
     held_asset_rot_init: float = 0.0
 
     # Rewards - adjusted for stacker insertion
-    keypoint_coef_baseline: list = [5, 2]
-    keypoint_coef_coarse: list = [50, 5]
-    keypoint_coef_fine: list = [100, 10]
+    keypoint_coef_baseline: list = [5, 4]
+    keypoint_coef_coarse: list = [50, 2]
+    keypoint_coef_fine: list = [100, 0]
     success_threshold: float = 0.05  # Fraction of insertion depth
-    engage_threshold: float = 0.8
+    engage_threshold: float = 0.5
 
     # Contact penalty for stacker insertion
     contact_penalty_scale: float = 0.15
